@@ -2255,18 +2255,79 @@ wipeButton.addEventListener("click", () => {
   const confirmed = confirm(
     "Erase ALL Game Hub progress?\n\n" +
     "This will reset the Abyss, Shards, secrets, " +
-    "daily bonus, and all other saved Game Hub progress."
+    "daily bonus, and all other saved Game Hub progress.\n\n" +
+    "This cannot be undone."
   );
 
   if (!confirmed) return;
 
-  localStorage.removeItem("gh_shards");
-  localStorage.removeItem("gh_bonus_date");
-  localStorage.removeItem("gh_mystery");
-  localStorage.removeItem("gh_echo");
+  /*
+   * Because the Game Hub itself lives inside
+   * about:blank, reload() would only reload
+   * the blank document.
+   *
+   * Instead, clear the storage AND rebuild
+   * the Game Hub in the current about:blank.
+   */
 
+  const keysToDelete = [
+    "gh_shards",
+    "gh_bonus_date",
+    "gh_mystery",
+    "gh_echo"
+  ];
+
+  /*
+   * Clear the current storage.
+   */
+  keysToDelete.forEach(key => {
+    try {
+      localStorage.removeItem(key);
+    } catch (error) {}
+  });
+
+  /*
+   * Also clear session storage in case
+   * you add temporary progress there later.
+   */
+  try {
+    sessionStorage.clear();
+  } catch (error) {}
+
+  /*
+   * Return to the actual launcher.
+   *
+   * The opener is the original GitHub page.
+   */
+  if (window.opener && !window.opener.closed) {
+
+    try {
+
+      /*
+       * Tell the launcher to reload.
+       * This causes it to create a fresh
+       * Game Hub about:blank window.
+       */
+      window.opener.location.reload();
+
+      /*
+       * Close this Game Hub window.
+       */
+      window.close();
+
+      return;
+
+    } catch (error) {}
+
+  }
+
+  /*
+   * Fallback if there is no opener.
+   *
+   * Rebuild the current page instead of
+   * navigating to about:blank again.
+   */
   location.reload();
-
 });
 
 
