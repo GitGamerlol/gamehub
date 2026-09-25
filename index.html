@@ -2249,7 +2249,8 @@ const ABYSS_GAMES = [
 
   
 
-  const wipeButton = document.getElementById("wipeButton");
+  const wipeButton =
+  document.getElementById("wipeButton");
 
 wipeButton.addEventListener("click", () => {
 
@@ -2262,30 +2263,54 @@ wipeButton.addEventListener("click", () => {
 
   if (!confirmed) return;
 
-  // Clear storage from the Game Hub itself.
+  /*
+   * First attempt to wipe the storage belonging
+   * to the actual Game Hub document.
+   */
   try {
     localStorage.clear();
   } catch (error) {
-    console.error("Could not clear localStorage:", error);
+    console.error(
+      "Game Hub localStorage clear failed:",
+      error
+    );
   }
 
   try {
     sessionStorage.clear();
   } catch (error) {
-    console.error("Could not clear sessionStorage:", error);
+    console.error(
+      "Game Hub sessionStorage clear failed:",
+      error
+    );
   }
 
-  // Tell the launcher to reload itself.
+  /*
+   * Then tell the launcher to perform its
+   * own complete reset.
+   */
   if (
     window.opener &&
     !window.opener.closed &&
-    typeof window.opener.resetGameHubProgress === "function"
+    typeof window.opener.resetGameHubProgress ===
+      "function"
   ) {
-    window.opener.resetGameHubProgress();
-  }
 
-  // Close the current Game Hub window.
-  window.close();
+    window.opener.resetGameHubProgress();
+
+    /*
+     * Don't reload the about:blank Game Hub.
+     * The launcher will create a fresh one.
+     */
+    window.close();
+
+  } else {
+
+    alert(
+      "The Game Hub launcher could not be reached.\n\n" +
+      "Please reopen the Game Hub and try again."
+    );
+  }
 });
 
 
