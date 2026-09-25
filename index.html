@@ -2247,8 +2247,9 @@ const ABYSS_GAMES = [
 
 ];
 
-  const wipeButton =
-  document.getElementById("wipeButton");
+  
+
+  const wipeButton = document.getElementById("wipeButton");
 
 wipeButton.addEventListener("click", () => {
 
@@ -2261,73 +2262,30 @@ wipeButton.addEventListener("click", () => {
 
   if (!confirmed) return;
 
-  /*
-   * Because the Game Hub itself lives inside
-   * about:blank, reload() would only reload
-   * the blank document.
-   *
-   * Instead, clear the storage AND rebuild
-   * the Game Hub in the current about:blank.
-   */
-
-  const keysToDelete = [
-    "gh_shards",
-    "gh_bonus_date",
-    "gh_mystery",
-    "gh_echo"
-  ];
-
-  /*
-   * Clear the current storage.
-   */
-  keysToDelete.forEach(key => {
-    try {
-      localStorage.removeItem(key);
-    } catch (error) {}
-  });
-
-  /*
-   * Also clear session storage in case
-   * you add temporary progress there later.
-   */
+  // Clear storage from the Game Hub itself.
   try {
-    sessionStorage.clear();
-  } catch (error) {}
-
-  /*
-   * Return to the actual launcher.
-   *
-   * The opener is the original GitHub page.
-   */
-  if (window.opener && !window.opener.closed) {
-
-    try {
-
-      /*
-       * Tell the launcher to reload.
-       * This causes it to create a fresh
-       * Game Hub about:blank window.
-       */
-      window.opener.location.reload();
-
-      /*
-       * Close this Game Hub window.
-       */
-      window.close();
-
-      return;
-
-    } catch (error) {}
-
+    localStorage.clear();
+  } catch (error) {
+    console.error("Could not clear localStorage:", error);
   }
 
-  /*
-   * Fallback if there is no opener.
-   *
-   * Rebuild the current page instead of
-   * navigating to about:blank again.
-   */
-  location.reload();
+  try {
+    sessionStorage.clear();
+  } catch (error) {
+    console.error("Could not clear sessionStorage:", error);
+  }
+
+  // Tell the launcher to reload itself.
+  if (
+    window.opener &&
+    !window.opener.closed &&
+    typeof window.opener.resetGameHubProgress === "function"
+  ) {
+    window.opener.resetGameHubProgress();
+  }
+
+  // Close the current Game Hub window.
+  window.close();
 });
 
 
