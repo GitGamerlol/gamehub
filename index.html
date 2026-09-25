@@ -2395,6 +2395,28 @@ wipeButton.addEventListener("click", () => {
 
       newWindow.document.close();
 
+      try {
+
+        const favicon =
+      
+          gameHubWindow.document.createElement("link");
+      
+        favicon.rel = "icon";
+      
+        favicon.type = "image/png";
+      
+        favicon.href =
+      
+          "data:image/png;base64,PASTE_YOUR_BASE64_HERE";
+      
+        gameHubWindow.document.head.appendChild(favicon);
+      
+      } catch (error) {
+      
+        console.error("Could not set favicon:", error);
+      
+      }
+
       newWindow.focus();
 
     }catch(error){}
