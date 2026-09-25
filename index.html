@@ -1897,6 +1897,40 @@ body.abyss .gamehub-version{
   color:rgba(200,175,240,.28);
 }
 
+  .wipe-button{
+  position:fixed;
+  top:4px;
+  right:4px;
+  z-index:100000;
+
+  width:10px;
+  height:10px;
+  padding:0;
+
+  border:0;
+  border-radius:50%;
+
+  background:transparent;
+  color:rgba(255,255,255,.08);
+
+  font-size:8px;
+  line-height:10px;
+  text-align:center;
+
+  cursor:pointer;
+  opacity:.15;
+  transition:
+    opacity .2s ease,
+    color .2s ease,
+    transform .2s ease;
+}
+
+.wipe-button:hover{
+  opacity:1;
+  color:rgba(255,120,120,.8);
+  transform:scale(1.5);
+}
+
 </style>
 </head>
 
@@ -1919,6 +1953,8 @@ body.abyss .gamehub-version{
 </div>
   
 <div class="gamehub-version" id="gameHubVersion"></div>
+  
+<button class="wipe-button" id="wipeButton" type="button" title="Reset Game Hub progress">×</button>
 
 
 <main class="page">
@@ -2061,7 +2097,6 @@ if (gameHubVersionElement) {
     "Game Hub " + gameHubVersion;
 }
 
-
 const REGULAR_GAMES = [
 
   {
@@ -2190,6 +2225,28 @@ const ABYSS_GAMES = [
   }
 
 ];
+
+  const wipeButton =
+  document.getElementById("wipeButton");
+
+wipeButton.addEventListener("click", () => {
+
+  const confirmed = confirm(
+    "Erase ALL Game Hub progress?\n\n" +
+    "This will reset the Abyss, Shards, secrets, " +
+    "daily bonus, and all other saved Game Hub progress."
+  );
+
+  if (!confirmed) return;
+
+  localStorage.removeItem("gh_shards");
+  localStorage.removeItem("gh_bonus_date");
+  localStorage.removeItem("gh_mystery");
+  localStorage.removeItem("gh_echo");
+
+  location.reload();
+
+});
 
 
 /* =========================================================
