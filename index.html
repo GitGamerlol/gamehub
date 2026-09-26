@@ -2097,8 +2097,9 @@ body.abyss .gamehub-version{
    REGULAR GAMES ARE NOW LOADED FROM GOOGLE SHEETS.
 
    SHEET FORMAT:
-   Name | URL | Enabled
+   Name | URL | Regular/Secret | Enabled
 
+   Set Regular/Secret to TRUE for regular games or FALSE for secret Abyss games.
    Set Enabled to TRUE, YES, 1, ON, or ENABLED to show a game.
    Any other value disables it.
 
@@ -2125,7 +2126,7 @@ if (gameHubVersionElement) {
 
 /*
  * Regular games now come from Google Sheets.
- * Sheet columns: Name | URL | Enabled
+ * Sheet columns: Name | URL | Regular/Secret | Enabled
  */
 const REGULAR_GAMES = [];
 
@@ -2207,7 +2208,7 @@ function parseGameSheetCSV(csv){
 
   if(current.trim()) rows.push(current);
 
-  if(rows.length < 2) return [];
+  if(rows.length < 2) return { regular: [], secret: [] };
 
   const headers = parseCSVLine(rows[0]).map(
     header => header.replace(/^\uFEFF/, "").toLowerCase().trim()
@@ -2231,6 +2232,10 @@ function parseGameSheetCSV(csv){
     const columns = parseCSVLine(rows[i]);
     const name = (columns[nameIndex] || "").trim();
     const url = (columns[urlIndex] || "").trim();
+    const regular = (columns[regularIndex] || "")
+      .trim()
+      .toLowerCase();
+
     const enabled = (columns[enabledIndex] || "")
       .trim()
       .toLowerCase();
@@ -2654,8 +2659,8 @@ async function initializeGameHub(){
   let loadedGames =
     getCachedGameList();
 
-  if(loadedGames.length){
-    renderGames(loadedGames);
+  if(loadedGames.regular.length || loadedGames.secret.length){
+    renderGames(loadedGames.regular);
   }
 
   loadedGames =
@@ -3627,7 +3632,7 @@ async function initializeGameHub(){
      */
 
     renderGames(
-      ABYSS_GAMES
+      loadedGames.secret
     );
 
 
@@ -3770,7 +3775,7 @@ async function initializeGameHub(){
      */
 
     renderGames(
-      REGULAR_GAMES
+      loadedGames.regular
     );
 
 
@@ -4495,7 +4500,7 @@ async function initializeGameHub(){
      ======================================================= */
 
   renderGames(
-    loadedGames
+    loadedGames.regular
   );
 
 
@@ -4511,7 +4516,12 @@ async function initializeGameHub(){
 
       if(JSON.stringify(freshGames) !== JSON.stringify(loadedGames)){
         loadedGames = freshGames;
-        renderGames(loadedGames);
+
+        if(inAbyss){
+          renderGames(loadedGames.secret);
+        }else{
+          renderGames(loadedGames.regular);
+        }
       }
 
     },
