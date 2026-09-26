@@ -2094,11 +2094,16 @@ body.abyss .gamehub-version{
 
    GAME CONFIGURATION
 
-   THIS IS THE ONLY PLACE YOU NEED TO EDIT
-   WHEN ADDING / REMOVING GAMES.
+   REGULAR GAMES ARE NOW LOADED FROM GOOGLE SHEETS.
+
+   SHEET FORMAT:
+   Name | URL | Enabled
+
+   Set Enabled to TRUE, YES, 1, ON, or ENABLED to show a game.
+   Any other value disables it.
 
    REGULAR_GAMES:
-   Games shown in the normal Game Hub.
+   Loaded automatically from the sheet below.
 
    ABYSS_GAMES:
    Games shown inside The Abyss.
@@ -2118,69 +2123,219 @@ if (gameHubVersionElement) {
     "Game Hub " + gameHubVersion;
 }
 
-const REGULAR_GAMES = [
+/*
+ * Regular games now come from Google Sheets.
+ * Sheet columns: Name | URL | Enabled
+ */
+const REGULAR_GAMES = [];
 
-  {
-    name: "Miniclip",
-    url: "https://miniclip.com"
-  },
+const GAME_SHEET_ID =
+  "1s4CF3CSa0OB8Z-5lqbA7Vbpwg38i-zyBzM_eVX_hIc8";
 
-  {
-    name: "Coolmath Games",
-    url: "https://www.coolmathgames.com"
-  },
+const GAME_SHEET_GID = "0";
 
-  {
-    name: "Steam",
-    url: "https://store.steampowered.com"
-  },
+const GAME_SHEET_URL =
+  `https://docs.google.com/spreadsheets/d/${GAME_SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GAME_SHEET_GID}`;
 
-  {
-    name: "Roblox",
-    url: "https://www.roblox.com"
-  },
+const GAME_SHEET_CACHE_KEY = "gh_google_sheet_games_v1";
+const GAME_SHEET_REFRESH_MS = 60 * 1000;
 
-  {
-    name: "Krunker",
-    url: "https://krunker.io"
-  },
+function parseCSVLine(line){
 
-  {
-    name: "Chess.com",
-    url: "https://www.chess.com"
-  },
+  const values = [];
+  let value = "";
+  let quoted = false;
 
-  {
-    name: "Agar.io",
-    url: "https://agar.io"
-  },
+  for(let i = 0; i < line.length; i++){
 
-  {
-    name: "Shell Shockers",
-    url: "https://shellshock.io"
-  },
+    const char = line[i];
+    const next = line[i + 1];
 
-  {
-    name: "Slither.io",
-    url: "https://slither.io"
-  },
+    if(char === '"'){
 
-  {
-    name: "Diep.io",
-    url: "https://diep.io"
-  },
+      if(quoted && next === '"'){
+        value += '"';
+        i++;
+      }else{
+        quoted = !quoted;
+      }
 
-  {
-    name: "Paper.io",
-    url: "https://paper-io.com"
-  },
-
-  {
-    name: "Skribbl.io",
-    url: "https://skribbl.io"
+    }else if(char === "," && !quoted){
+      values.push(value.trim());
+      value = "";
+    }else{
+      value += char;
+    }
   }
 
-];
+  values.push(value.trim());
+  return values;
+}
+
+function parseGameSheetCSV(csv){
+
+  const rows = [];
+  let current = "";
+  let quoted = false;
+
+  for(let i = 0; i < csv.length; i++){
+
+    const char = csv[i];
+    const next = csv[i + 1];
+
+    if(char === '"'){
+
+      if(quoted && next === '"'){
+        current += '""';
+        i++;
+      }else{
+        quoted = !quoted;
+        current += char;
+      }
+
+    }else if((char === "\n" || char === "\r") && !quoted){
+
+      if(char === "\r" && next === "\n") i++;
+
+      if(current.trim()) rows.push(current);
+      current = "";
+
+    }else{
+      current += char;
+    }
+  }
+
+  if(current.trim()) rows.push(current);
+
+  if(rows.length < 2) return [];
+
+  const headers = parseCSVLine(rows[0]).map(
+    header => header.replace(/^\uFEFF/, "").toLowerCase().trim()
+  );
+
+  const nameIndex = headers.indexOf("name");
+  const urlIndex = headers.indexOf("url");
+  const enabledIndex = headers.indexOf("enabled");
+
+  if(nameIndex === -1 || urlIndex === -1 || enabledIndex === -1){
+    throw new Error(
+      "Google Sheet must have columns: Name | URL | Enabled"
+    );
+  }
+
+  const games = [];
+  const seen = new Set();
+
+  for(let i = 1; i < rows.length; i++){
+
+    const columns = parseCSVLine(rows[i]);
+    const name = (columns[nameIndex] || "").trim();
+    const url = (columns[urlIndex] || "").trim();
+    const enabled = (columns[enabledIndex] || "")
+      .trim()
+      .toLowerCase();
+
+    if(!name || !url) continue;
+
+    if(!["true", "yes", "1", "on", "enabled"].includes(enabled)){
+      continue;
+    }
+
+    let parsedURL;
+
+    try{
+      parsedURL = new URL(url);
+    }catch(error){
+      console.warn("Skipping invalid game URL:", name, url);
+      continue;
+    }
+
+    if(parsedURL.protocol !== "http:" && parsedURL.protocol !== "https:"){
+      console.warn("Skipping unsupported game URL:", name, url);
+      continue;
+    }
+
+    const key = parsedURL.href.toLowerCase();
+
+    if(seen.has(key)) continue;
+    seen.add(key);
+
+    games.push({
+      name,
+      url: parsedURL.href
+    });
+  }
+
+  return games;
+}
+
+function cacheGameList(games){
+  try{
+    localStorage.setItem(
+      GAME_SHEET_CACHE_KEY,
+      JSON.stringify({
+        savedAt: Date.now(),
+        games
+      })
+    );
+  }catch(error){}
+}
+
+function getCachedGameList(){
+  try{
+    const cached = JSON.parse(
+      localStorage.getItem(GAME_SHEET_CACHE_KEY) || "null"
+    );
+
+    if(cached && Array.isArray(cached.games)){
+      return cached.games;
+    }
+  }catch(error){}
+
+  return [];
+}
+
+async function loadGamesFromGoogleSheet(){
+
+  try{
+
+    const response = await fetch(
+      GAME_SHEET_URL + "&cachebust=" + Date.now(),
+      {
+        cache: "no-store",
+        credentials: "omit"
+      }
+    );
+
+    if(!response.ok){
+      throw new Error(
+        "Google Sheet returned HTTP " + response.status
+      );
+    }
+
+    const csv = await response.text();
+    const games = parseGameSheetCSV(csv);
+
+    cacheGameList(games);
+
+    console.log(
+      "Game Hub loaded",
+      games.length,
+      "enabled games from Google Sheets."
+    );
+
+    return games;
+
+  }catch(error){
+
+    console.warn(
+      "Google Sheet unavailable; using cached game list.",
+      error
+    );
+
+    return getCachedGameList();
+  }
+}
 
 
 const ABYSS_GAMES = [
@@ -2443,7 +2598,7 @@ wipeButton.addEventListener("click", () => {
    EVERYTHING BELOW RUNS INSIDE ABOUT:BLANK
    ========================================================= */
 
-function initializeGameHub(){
+async function initializeGameHub(){
 
   /*
    * Prevent accidental double initialization.
@@ -2490,6 +2645,21 @@ function initializeGameHub(){
     document.getElementById(
       "returnPortalContainer"
     );
+
+
+  /* =======================================================
+     GOOGLE SHEETS GAME LIST
+     ======================================================= */
+
+  let loadedGames =
+    getCachedGameList();
+
+  if(loadedGames.length){
+    renderGames(loadedGames);
+  }
+
+  loadedGames =
+    await loadGamesFromGoogleSheet();
 
 
   /* =======================================================
@@ -4325,7 +4495,27 @@ function initializeGameHub(){
      ======================================================= */
 
   renderGames(
-    REGULAR_GAMES
+    loadedGames
+  );
+
+
+  /*
+   * Check the sheet periodically so changes to Enabled, names,
+   * and URLs appear without editing or redeploying the Game Hub.
+   */
+  setInterval(
+    async ()=>{
+
+      const freshGames =
+        await loadGamesFromGoogleSheet();
+
+      if(JSON.stringify(freshGames) !== JSON.stringify(loadedGames)){
+        loadedGames = freshGames;
+        renderGames(loadedGames);
+      }
+
+    },
+    GAME_SHEET_REFRESH_MS
   );
 
 
